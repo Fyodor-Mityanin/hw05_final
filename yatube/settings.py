@@ -116,5 +116,8 @@ SITE_ID = 1
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-    }
+    },
+    'testing': {
+        'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+    },
 }
