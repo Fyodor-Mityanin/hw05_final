@@ -20,5 +20,6 @@ posts/static/
 media/
 sent_emails/
 venv_05/
+.vscode/
 
 db.sqlite3

@@ -52,10 +52,10 @@ def new_post(request):
 def profile(request, username):
     username = get_object_or_404(User, username=username)
     author_post_list = username.posts.all()
-    follow = Follow.objects.filter(user=request.user, author=username)
-    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-    print(follow)
-    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+    if request.user.is_authenticated:
+        follow = Follow.objects.filter(user=request.user, author=username)
+    else:
+        follow = True
     paginator = Paginator(author_post_list, 10)
     page_number = request.GET.get('page')
     page = paginator.get_page(page_number)
@@ -141,16 +141,8 @@ def server_error(request):
 
 @login_required
 def follow_index(request):
-    authors_qs = request.user.follower.all()
-
-    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-    print(authors_qs)
-    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-    post_list = Post.objects.filter(author__id__in=authors_qs)
-    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-    print(post_list)
-    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-
+    authors_qs = request.user.follower.values('author')
+    post_list = Post.objects.filter(author__in=authors_qs)
     paginator = Paginator(post_list, 10)
     page_number = request.GET.get('page')
     page = paginator.get_page(page_number)
@@ -159,8 +151,6 @@ def follow_index(request):
         'follow.html',
         {'page': page, 'paginator': paginator}
     )
-
-    return render(request, "follow.html", {...})
 
 
 @login_required
@@ -177,7 +167,8 @@ def profile_follow(request, username):
 
 @login_required
 def profile_unfollow(request, username):
-    follow = Follow.objects.filter(user=request.user, author__username=username)
+    follow = Follow.objects.filter(
+        user=request.user, author__username=username)
     if follow:
         follow.delete()
     return redirect('profile', username=username)

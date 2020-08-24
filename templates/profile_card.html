@@ -20,7 +20,7 @@
                                         Записей: {{ profile.posts.count }}
                                 </div>
                         </li>
-                        {% if request.user != profile %}
+                        {% if request.user.is_authenticated and request.user != profile %}
                         <li class="list-group-item">
                                 {% if follow %}
                                 <a class="btn btn-lg btn-light" href="{% url 'profile_unfollow' profile.username %}"
