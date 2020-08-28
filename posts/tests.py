@@ -3,11 +3,12 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from .models import Group, Post, User
+from .models import Comment, Follow, Group, Post, User
 
 
 class Test_all(TestCase):
     def setUp(self):
+        cache.clear()
         self.auth_client = Client()
         self.unauth_client = Client()
         self.user = User.objects.create_user(
@@ -20,9 +21,6 @@ class Test_all(TestCase):
             description='Группа посвящённая проблемам с ксеноморфами',
         )
         self.post_text = 'I say we take off and nuke this entire site from orbit...its the only way to be sure.'
-
-    def tearDown(self):
-        cache.clear()
 
     def profile_link(self):
         return reverse('profile', kwargs={'username': self.user.username, })
@@ -164,7 +162,7 @@ class Test_all(TestCase):
         response = self.unauth_client.get('/sagertynryunryunfgnv/')
         self.assertEqual(response.status_code, 404)
 
-    def test_post_contains_img(self):
+    def test_img_appears_everywhere(self):
         small_gif = (
             b'\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x00\x00\x00\x21\xf9\x04'
             b'\x01\x0a\x00\x01\x00\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02'
@@ -181,37 +179,11 @@ class Test_all(TestCase):
             group=self.group,
             image=img,
         )
-        post_link = reverse(
-            'post',
-            kwargs={
-                'username': self.user.username,
-                'post_id': post.id,
-            }
-        )
-        response = self.unauth_client.get(post_link)
-        self.assertContains(response, '<img')
-
-    def test_img_appears_everywhere(self):
-        small_gif = (
-            b'\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x00\x00\x00\x21\xf9\x04'
-            b'\x01\x0a\x00\x01\x00\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02'
-            b'\x02\x4c\x01\x00\x3b'
-        )
-        img = SimpleUploadedFile(
-            name='img.gif',
-            content=small_gif,
-            content_type='image/jpeg',
-        )
-        Post.objects.create(
-            author=self.user,
-            text='post with image',
-            group=self.group,
-            image=img,
-        )
         urls = [
             reverse('index'),
             self.profile_link(),
             self.group_link(),
+            reverse('post', args=[self.user.username, post.id]),
         ]
         for url in urls:
             with self.subTest(url=url):
@@ -219,15 +191,20 @@ class Test_all(TestCase):
                 self.assertContains(response, '<img')
 
     def test_not_img_cannot_upload(self):
-        with open('media/tests/just_text.txt', 'rb') as img:
-            post = self.auth_client.post(
-                reverse('new_post'),
-                {
-                    'text': 'post with image',
-                    'group': self.group.id,
-                    'image': img,
-                },
-            )
+        text_file = (b'text')
+        not_img = SimpleUploadedFile(
+            name='img.txt',
+            content=text_file,
+            content_type='text/plain',
+        )
+        post = self.auth_client.post(
+            reverse('new_post'),
+            {
+                'text': 'post with image',
+                'group': self.group.id,
+                'image': not_img,
+            },
+        )
         self.assertFormError(
             post,
             'form',
@@ -238,30 +215,50 @@ class Test_all(TestCase):
         )
 
     def test_cache(self):
-        post1 = Post.objects.create(
+        post = Post.objects.create(
             text=self.post_text,
             author=self.user,
             group=self.group,
         )
-        response = self.unauth_client.get(reverse('index'))
-        self.assertContains(response, post1.text)
-        post2 = Post.objects.create(
-            text='new_text',
-            author=self.user,
+        response_before_post_delete = self.unauth_client.get(reverse('index'))
+        self.check_post_context(
+            resp=response_before_post_delete,
+            text=self.post_text,
+            user=self.user,
+            group=self.group
         )
-        response = self.unauth_client.get(reverse('index'))
-        self.assertNotContains(response, post2.text)
+        post.delete()
+        response_after_post_delete = self.unauth_client.get(reverse('index'))
+        self.assertEqual(
+            response_before_post_delete.content,
+            response_after_post_delete.content
+        )
         cache.clear()
-        response = self.unauth_client.get(reverse('index'))
-        self.assertContains(response, post2.text)
+        response_after_cache_clear = self.unauth_client.get(reverse('index'))
+        self.assertNotEqual(
+            response_before_post_delete.content,
+            response_after_cache_clear.content
+        )
 
-    def test_auth_user_can_follow_and_unfollow(self):
+    def test_auth_user_can_follow(self):
         user2 = User.objects.create_user(username='bishop')
         follow_link = reverse('profile_follow', args=[user2.username])
-        unfollow_link = reverse('profile_unfollow', args=[user2.username])
         self.assertEqual(self.user.follower.count(), 0)
         self.auth_client.get(follow_link)
         self.assertEqual(self.user.follower.count(), 1)
+        self.assertIn(user2.id, self.user.follower.values_list(
+            'author', flat=True))
+        self.assertIn(self.user.id, user2.following.values_list(
+            'user', flat=True))
+
+    def test_auth_user_can_unfollow(self):
+        user2 = User.objects.create_user(username='bishop')
+        Follow.objects.create(
+            user=self.user,
+            author=user2,
+        )
+        self.assertEqual(self.user.follower.count(), 1)
+        unfollow_link = reverse('profile_unfollow', args=[user2.username])
         self.auth_client.get(unfollow_link)
         self.assertEqual(self.user.follower.count(), 0)
 
@@ -272,14 +269,18 @@ class Test_all(TestCase):
             author=user2,
             group=self.group,
         )
-        follow_link = reverse('profile_follow', args=[user2.username])
-        unfollow_link = reverse('profile_unfollow', args=[user2.username])
+        follow = Follow.objects.create(
+            user=self.user,
+            author=user2,
+        )
         response = self.auth_client.get(reverse('follow_index'))
-        self.assertEqual(response.context['paginator'].count, 0)
-        self.auth_client.get(follow_link)
-        response = self.auth_client.get(reverse('follow_index'))
-        self.assertEqual(response.context['paginator'].count, 1)
-        self.auth_client.get(unfollow_link)
+        self.check_post_context(
+            resp=response,
+            text=self.post_text,
+            user=user2,
+            group=self.group
+        )
+        follow.delete()
         response = self.auth_client.get(reverse('follow_index'))
         self.assertEqual(response.context['paginator'].count, 0)
 
@@ -297,13 +298,25 @@ class Test_all(TestCase):
                 'post_id': post.id,
             }
         )
-        self.assertEqual(post.comments.count(), 0)
-        self.assertEqual(self.user.comments.count(), 0)
-        self.auth_client.post(
-            add_comment_link,
-            {
-                'text': 'каммент',
+        self.assertFalse(Comment.objects.exists())
+        self.auth_client.post(add_comment_link, {'text': 'каммент'})
+        self.assertEqual(Comment.objects.count(), 1)
+        self.assertEqual(Comment.objects.first().author, self.user)
+        self.assertEqual(Comment.objects.first().text, 'каммент')
+
+    def test_unauth_user_can_comment(self):
+        post = Post.objects.create(
+            text=self.post_text,
+            author=self.user,
+            group=self.group,
+        )
+        add_comment_link = reverse(
+            'add_comment',
+            kwargs={
+                'username': self.user.username,
+                'post_id': post.id,
             }
         )
-        self.assertEqual(post.comments.count(), 1)
-        self.assertEqual(self.user.comments.count(), 1)
+        self.assertFalse(Comment.objects.exists())
+        self.unauth_client.post(add_comment_link, {'text': 'каммент'})
+        self.assertFalse(Comment.objects.exists())

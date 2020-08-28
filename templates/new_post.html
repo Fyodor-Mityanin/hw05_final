@@ -1,10 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}
-{% if post %} <!-- Этот вариант лаконичнее и проще всё же -->
-Редактирование поста
-{% else %}
-Новый пост
-{% endif %}
+{{ post|yesno:'Редактирование поста,Новый пост' }}
 {% endblock %}
 {% block content %}
 {% load user_filters %}
@@ -14,11 +10,7 @@
   <div class="col-md-12 p-5">
     <div class="card">
       <div class="card-header">
-        {% if post %}
-        Редактирование поста
-        {% else %}
-        Новый пост
-        {% endif %}
+        {{ post|yesno:'Редактирование поста,Новый пост' }}
       </div>
       <div class="card-body">
 
@@ -44,13 +36,9 @@
           </div>
           {% endfor %}
 
-          <div class="col-md-6 offset-md-4">
+          <div class="col-md-6 offset-md-2">
             <button type="submit" class="btn btn-primary">
-              {% if post %}
-              Отредактировать
-              {% else %}
-              Запостить
-              {% endif %}
+              {{ post|yesno:'Отредактировать,Запостить' }}
             </button>
           </div>
         </form>
