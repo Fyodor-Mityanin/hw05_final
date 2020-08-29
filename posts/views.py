@@ -74,10 +74,11 @@ def profile(request, username):
 
 
 def post_view(request, username, post_id):
-    post = get_object_or_404(Post, author__username=username, pk=post_id)
-    comments = post.comments.all()
-    # тут не понял как, ведь в модели Post нету поля comment.
-    # И как подгрузить их в Queryset, если get_object_or_404 возвращает объект.
+    post = get_object_or_404(
+        Post.objects.prefetch_related('comments'),
+        author__username=username,
+        pk=post_id
+    )
     form = CommentForm(request.POST or None)
     if form.is_valid():
         form.instance.author = request.user
@@ -91,7 +92,6 @@ def post_view(request, username, post_id):
             'profile': post.author,
             'post': post,
             'form': form,
-            'comments': comments,
         }
     )
 

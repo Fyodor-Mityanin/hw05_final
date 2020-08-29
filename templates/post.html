@@ -6,7 +6,7 @@
         {% include "parts/profile_card.html" %}
         <div class="col-md-9">
             {% include "parts/post_item.html" with post=post %}
-            {% include "parts/comments.html"  with items=comments %}
+            {% include "parts/comments.html"  with items=post.comments.all %}
         </div>
     </div>
 </main>
