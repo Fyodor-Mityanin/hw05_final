@@ -1,14 +1,21 @@
+import os
+import shutil
+
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
+
+from yatube.settings import BASE_DIR
 
 from .models import Comment, Follow, Group, Post, User
 
+TEST_MEDIA_ROOT = os.path.join(BASE_DIR, 'test_data')
 
+
+@override_settings(MEDIA_ROOT=TEST_MEDIA_ROOT)
 class Test_all(TestCase):
     def setUp(self):
-        cache.clear()
         self.auth_client = Client()
         self.unauth_client = Client()
         self.user = User.objects.create_user(
@@ -20,7 +27,15 @@ class Test_all(TestCase):
             slug='aliens',
             description='Группа посвящённая проблемам с ксеноморфами',
         )
-        self.post_text = 'I say we take off and nuke this entire site from orbit...its the only way to be sure.'
+        self.post_text = ('I say we take off and nuke this entire '
+                          'site from orbit...its the only way to be sure.')
+        cache.clear()
+
+    def tearDown(self):
+        try:
+            shutil.rmtree(TEST_MEDIA_ROOT)
+        except FileNotFoundError:
+            pass
 
     def profile_link(self):
         return reverse('profile', kwargs={'username': self.user.username, })
@@ -193,9 +208,9 @@ class Test_all(TestCase):
     def test_not_img_cannot_upload(self):
         text_file = (b'text')
         not_img = SimpleUploadedFile(
-            name='img.txt',
+            name='not_img.jpg',
             content=text_file,
-            content_type='text/plain',
+            content_type='image/jpeg',
         )
         post = self.auth_client.post(
             reverse('new_post'),
@@ -243,13 +258,10 @@ class Test_all(TestCase):
     def test_auth_user_can_follow(self):
         user2 = User.objects.create_user(username='bishop')
         follow_link = reverse('profile_follow', args=[user2.username])
-        self.assertEqual(self.user.follower.count(), 0)
         self.auth_client.get(follow_link)
-        self.assertEqual(self.user.follower.count(), 1)
-        self.assertIn(user2.id, self.user.follower.values_list(
-            'author', flat=True))
-        self.assertIn(self.user.id, user2.following.values_list(
-            'user', flat=True))
+        self.assertEqual(Follow.objects.count(), 1)
+        self.assertEqual(Follow.objects.first().author, user2)
+        self.assertEqual(Follow.objects.first().user, self.user)
 
     def test_auth_user_can_unfollow(self):
         user2 = User.objects.create_user(username='bishop')
@@ -257,7 +269,6 @@ class Test_all(TestCase):
             user=self.user,
             author=user2,
         )
-        self.assertEqual(self.user.follower.count(), 1)
         unfollow_link = reverse('profile_unfollow', args=[user2.username])
         self.auth_client.get(unfollow_link)
         self.assertEqual(self.user.follower.count(), 0)
@@ -269,7 +280,7 @@ class Test_all(TestCase):
             author=user2,
             group=self.group,
         )
-        follow = Follow.objects.create(
+        Follow.objects.create(
             user=self.user,
             author=user2,
         )
@@ -280,9 +291,6 @@ class Test_all(TestCase):
             user=user2,
             group=self.group
         )
-        follow.delete()
-        response = self.auth_client.get(reverse('follow_index'))
-        self.assertEqual(response.context['paginator'].count, 0)
 
     def test_auth_user_can_comment(self):
         user2 = User.objects.create_user(username='bishop')
@@ -298,11 +306,13 @@ class Test_all(TestCase):
                 'post_id': post.id,
             }
         )
-        self.assertFalse(Comment.objects.exists())
-        self.auth_client.post(add_comment_link, {'text': 'каммент'})
+        comment_text = 'каммент'
+        self.auth_client.post(add_comment_link, {'text': comment_text})
         self.assertEqual(Comment.objects.count(), 1)
-        self.assertEqual(Comment.objects.first().author, self.user)
-        self.assertEqual(Comment.objects.first().text, 'каммент')
+        comment = Comment.objects.first()
+        self.assertEqual(comment.post, post)
+        self.assertEqual(comment.author, self.user)
+        self.assertEqual(comment.text, comment_text)
 
     def test_unauth_user_can_comment(self):
         post = Post.objects.create(
@@ -317,6 +327,6 @@ class Test_all(TestCase):
                 'post_id': post.id,
             }
         )
-        self.assertFalse(Comment.objects.exists())
-        self.unauth_client.post(add_comment_link, {'text': 'каммент'})
+        comment_text = 'каммент'
+        self.unauth_client.post(add_comment_link, {'text': comment_text})
         self.assertFalse(Comment.objects.exists())

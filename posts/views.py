@@ -7,7 +7,7 @@ from .forms import CommentForm, PostForm
 from .models import Follow, Group, Post, User
 
 
-@cache_page(20)
+@cache_page(20, key_prefix="index_page")
 def index(request):
     post_list = Post.objects.select_related('group', 'author').all()
     paginator = Paginator(post_list, 10)
@@ -53,12 +53,6 @@ def new_post(request):
 def profile(request, username):
     profile = get_object_or_404(User, username=username)
     profile_post_list = profile.posts.all()
-    # мне тут подсказали использовать конструкцию
-    # following = Follow.objects.filter(user__username=request.user,
-    # author__username=username).exists()
-    # мне показалось это каким-то багоюзерством,
-    # ради избавления от одной строки, не противоречит ли это
-    # «The Zen of Python» что 'Явное лучше, чем неявное.'?
     try:
         follow = Follow.objects.filter(
             user=request.user, author=profile).exists()
@@ -81,8 +75,10 @@ def profile(request, username):
 
 def post_view(request, username, post_id):
     post = get_object_or_404(Post, author__username=username, pk=post_id)
-    form = CommentForm(request.POST or None)
     comments = post.comments.all()
+    # тут не понял как, ведь в модели Post нету поля comment.
+    # И как подгрузить их в Queryset, если get_object_or_404 возвращает объект.
+    form = CommentForm(request.POST or None)
     if form.is_valid():
         form.instance.author = request.user
         form.instance.post = post
@@ -163,21 +159,14 @@ def follow_index(request):
 @login_required
 def profile_follow(request, username):
     author = get_object_or_404(User, username=username)
-    follow = Follow.objects.filter(user=request.user, author=author).exists()
-    if not follow and request.user != author:
-        Follow.objects.create(
-            user=request.user,
-            author=author,
-        )
+    if request.user != author:
+        Follow.objects.get_or_create(user=request.user, author=author)
     return redirect('profile', username=username)
 
 
 @login_required
 def profile_unfollow(request, username):
-    follow = get_object_or_404(
-        Follow,
-        user=request.user,
-        author__username=username
-    )
+    follow = Follow.objects.filter(
+        user=request.user, author__username=username)
     follow.delete()
     return redirect('profile', username=username)

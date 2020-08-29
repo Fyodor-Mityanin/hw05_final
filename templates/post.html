@@ -1,12 +1,12 @@
 {% extends 'base.html' %}
-{% block title %}Записи автора {{ profile }}под номером {{ post.id }}{% endblock %}
+{% block title %}Записи автора {{ profile }} под номером {{ post.id }}{% endblock %}
 {% block content %}
 <main role="main" class="container">
     <div class="row">
-        {% include "profile_card.html" %}
+        {% include "parts/profile_card.html" %}
         <div class="col-md-9">
-            {% include "post_item.html" with post=post %}
-            {% include "comments.html"  with items=comments %}
+            {% include "parts/post_item.html" with post=post %}
+            {% include "parts/comments.html"  with items=comments %}
         </div>
     </div>
 </main>

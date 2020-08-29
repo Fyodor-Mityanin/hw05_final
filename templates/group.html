@@ -5,11 +5,11 @@
     <div class="container">
            <h1> Последние обновления на сайте</h1>
                 {% for post in page %}
-                    {% include "post_item.html" with post=post %}
+                    {% include "parts/post_item.html" with post=post %}
                 {% endfor %}
     </div>
 
         {% if page.has_other_pages %}
-            {% include "decor/paginator.html" with items=page paginator=paginator%}
+            {% include "parts/paginator.html" with items=page paginator=paginator%}
         {% endif %}
 {% endblock %}
