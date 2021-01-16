@@ -14,7 +14,7 @@ TEST_MEDIA_ROOT = os.path.join(BASE_DIR, 'test_data')
 
 
 @override_settings(MEDIA_ROOT=TEST_MEDIA_ROOT)
-class Test_all(TestCase):
+class TestAll(TestCase):
     def setUp(self):
         self.auth_client = Client()
         self.unauth_client = Client()
@@ -32,10 +32,7 @@ class Test_all(TestCase):
         cache.clear()
 
     def tearDown(self):
-        try:
-            shutil.rmtree(TEST_MEDIA_ROOT)
-        except FileNotFoundError:
-            pass
+        shutil.rmtree(TEST_MEDIA_ROOT, ignore_errors=True)
 
     def profile_link(self):
         return reverse('profile', kwargs={'username': self.user.username, })
@@ -260,8 +257,9 @@ class Test_all(TestCase):
         follow_link = reverse('profile_follow', args=[user2.username])
         self.auth_client.get(follow_link)
         self.assertEqual(Follow.objects.count(), 1)
-        self.assertEqual(Follow.objects.first().author, user2)
-        self.assertEqual(Follow.objects.first().user, self.user)
+        follow_obj = Follow.objects.first()
+        self.assertEqual(follow_obj.author, user2)
+        self.assertEqual(follow_obj.user, self.user)
 
     def test_auth_user_can_unfollow(self):
         user2 = User.objects.create_user(username='bishop')

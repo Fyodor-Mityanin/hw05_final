@@ -3,7 +3,8 @@
 
 {% block content %}
     <div class="container">
-           <h1> Последние обновления на сайте</h1>
+           <h1> Записи сообщества {{ page.0.group }} </h1>
+           <h2> {{ page.0.group.description|linebreaks }} </h2>
                 {% for post in page %}
                     {% include "parts/post_item.html" with post=post %}
                 {% endfor %}

@@ -8,12 +8,16 @@ SECRET_KEY = '=y-%2_w2lb#!mk@0ow%-^r6-7doh_s#o10s6(w5)f(*&4oj+42'
 DEBUG = True
 
 ALLOWED_HOSTS = [
-        "localhost",
-        "127.0.0.1",
-        "[::1]",
-        "testserver",
+    "localhost",
+    "127.0.0.1",
+    "[::1]",
+    "testserver",
+    "*",
 ]
 
+INTERNAL_IPS = [
+    '127.0.0.1',
+]
 
 INSTALLED_APPS = [
     'users',
@@ -27,9 +31,12 @@ INSTALLED_APPS = [
     'django.contrib.flatpages',
     'posts',
     'sorl.thumbnail',
+    'debug_toolbar',
+    'rest_framework.authtoken',
 ]
 
 MIDDLEWARE = [
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -84,6 +91,17 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+    ]
+}
 
 
 LANGUAGE_CODE = 'ru'

@@ -15,12 +15,8 @@ __pycache__/
 *.sublime-project
 *.sublime-workspace
 
-static/
-posts/static/
-media/
 sent_emails/
 venv_05/
 posts/migrations/
 .vscode/
 
-db.sqlite3

@@ -4,11 +4,13 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.flatpages import views
 from django.urls import include, path
+from rest_framework.authtoken import views as rest_views
+
 
 from posts import views as posts_views
 
-handler404 = 'posts.views.page_not_found' # noqa
-handler500 = 'posts.views.server_error' # noqa
+handler404 = 'posts.views.page_not_found'  # noqa
+handler500 = 'posts.views.server_error'  # noqa
 
 urlpatterns = [
     path('404/', posts_views.page_not_found),
@@ -27,6 +29,16 @@ urlpatterns += [
     path('about-spec/', views.flatpage, name='about_spec'),
 ]
 
+urlpatterns += [
+    path('api-token-auth/', rest_views.obtain_auth_token)
+]
+
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    import debug_toolbar
+    urlpatterns += static(settings.MEDIA_URL,
+                          document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL,
+                          document_root=settings.STATIC_ROOT)
+    urlpatterns = [
+        path('__debug__/', include(debug_toolbar.urls)),
+    ] + urlpatterns
